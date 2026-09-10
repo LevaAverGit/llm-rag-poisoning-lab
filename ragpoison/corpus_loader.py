@@ -21,7 +21,12 @@ CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
 
 def _load_yaml_file(path: Path) -> List[Doc]:
     with path.open("r", encoding="utf-8") as fh:
-        raw = yaml.safe_load(fh)
+        try:
+            raw = yaml.safe_load(fh)
+        except yaml.YAMLError as exc:
+            raise RuntimeError(
+                "corpus file {} is not valid YAML: {}".format(path, exc)
+            ) from exc
     if raw is None:
         return []
     records = raw if isinstance(raw, list) else [raw]

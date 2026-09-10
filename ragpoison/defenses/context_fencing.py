@@ -53,9 +53,13 @@ class ContextFencingDefense(Defense):
         blocks: List[str] = []
         for i, doc in enumerate(docs, start=1):
             body = self._neutralise(doc.text.strip())
+            # The id is attacker-authored (it rides in from the corpus), so a crafted
+            # id could otherwise close the id="..." attribute or the tag and break out
+            # of the fence. Sanitise it exactly like the body before interpolating.
+            safe_id = self._sanitise_id(doc.id)
             blocks.append(
                 '<retrieved_document index="{i}" id="{id}">\n{body}\n'
-                "</retrieved_document>".format(i=i, id=doc.id, body=body)
+                "</retrieved_document>".format(i=i, id=safe_id, body=body)
             )
         context = STANDING_INSTRUCTION + "\n\n" + "\n\n".join(blocks)
         return self._result(context, kept=docs, quarantined=[], fenced=True)
@@ -71,6 +75,19 @@ class ContextFencingDefense(Defense):
         return text.replace(FENCE_CLOSE, "[/retrieved_document]").replace(
             FENCE_OPEN, "[retrieved_document"
         )
+
+    @staticmethod
+    def _sanitise_id(doc_id: str) -> str:
+        """Make an attacker-authored ``doc.id`` safe to interpolate into the fence tag.
+
+        Runs the id through the same fence-token neutraliser as the body and then
+        strips the characters that could close the ``id="..."`` attribute or the tag
+        itself (a double quote, angle brackets) or inject a new line.
+        """
+        cleaned = ContextFencingDefense._neutralise(str(doc_id))
+        for bad, repl in (('"', "'"), ("<", "["), (">", "]"), ("\r", " "), ("\n", " ")):
+            cleaned = cleaned.replace(bad, repl)
+        return cleaned
 
 
 __all__ = ["ContextFencingDefense", "STANDING_INSTRUCTION", "FENCE_OPEN", "FENCE_CLOSE"]

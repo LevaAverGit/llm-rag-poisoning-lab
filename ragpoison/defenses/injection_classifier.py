@@ -30,7 +30,7 @@ exercise the quarantine logic with no torch and no download; production leaves i
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from ..schema import Doc, DefenseName, RunConfig
 from .base import Defense, DefenseOutput, render_documents
@@ -45,14 +45,29 @@ DEFAULT_THRESHOLD = 0.5
 # tokens and would otherwise error on long documents.
 _MAX_CHARS = 4000
 
+# Module-level cache of built HF scorers, keyed by model name, so the (heavy) model
+# loads once per process instead of once per matrix cell (finding 4). Only the real
+# HF path populates this; the mock/test paths never reach _build_hf_scorer.
+_HF_SCORER_CACHE: Dict[str, Tuple[Optional[Scorer], Optional[str]]] = {}
+
 
 def _build_hf_scorer(model_name: str) -> Tuple[Optional[Scorer], Optional[str]]:
-    """Lazily build a real HuggingFace injection scorer.
+    """Lazily build a real HuggingFace injection scorer (memoized by model name).
 
     Returns ``(scorer, None)`` on success or ``(None, reason)`` if ``transformers``
     or the model is unavailable -- the caller turns a ``None`` scorer into a
     graceful skip. This is the only place ``transformers`` is imported.
     """
+    if model_name in _HF_SCORER_CACHE:  # pragma: no cover - real-model path
+        return _HF_SCORER_CACHE[model_name]
+
+    result = _load_hf_scorer(model_name)
+    _HF_SCORER_CACHE[model_name] = result
+    return result
+
+
+def _load_hf_scorer(model_name: str) -> Tuple[Optional[Scorer], Optional[str]]:
+    """Build a fresh HF scorer (uncached); see :func:`_build_hf_scorer`."""
     try:
         # Lazy import: this line is what pulls in transformers/torch, so it must
         # stay inside this function and never run for the mock/test paths.
@@ -68,12 +83,9 @@ def _build_hf_scorer(model_name: str) -> Tuple[Optional[Scorer], Optional[str]]:
         )
 
     def scorer(text: str) -> float:  # pragma: no cover - real-model path
-        try:
-            rows = clf(text[:_MAX_CHARS], truncation=True)
-        except Exception:
-            # Fail open on a per-document scoring error: keep the document rather
-            # than silently dropping content on an unexpected classifier fault.
-            return 0.0
+        # No fail-open here: a scoring fault propagates so the caller can FAIL CLOSED
+        # (quarantine the document and record the error) rather than silently keep it.
+        rows = clf(text[:_MAX_CHARS], truncation=True)
         row = rows[0] if isinstance(rows, list) else rows
         label = str(row.get("label", "")).upper()
         score = float(row.get("score", 0.0))
@@ -144,10 +156,22 @@ class InjectionClassifierDefense(Defense):
 
         kept: List[Doc] = []
         quarantined: List[Doc] = []
-        scores = {}
+        scores: Dict[str, float] = {}
+        score_errors: List[Dict[str, str]] = []
         for doc in docs:
-            prob = float(scorer(doc.text))
+            try:
+                prob = float(scorer(doc.text))
+            except Exception as exc:
+                # Fail CLOSED: a scoring fault must not silently pass an unscored
+                # document through. Quarantine it and record why, so the failure is
+                # visible in the matrix instead of masquerading as "kept, score 0.0".
+                score_errors.append({"id": doc.id, "error": str(exc)})
+                quarantined.append(doc)
+                continue
             scores[doc.id] = prob
+            # High P(injection) -> quarantine; low -> keep. (Gating verified: the
+            # scorer returns P(injection), so `>= threshold` correctly drops the
+            # documents the classifier flags as injections.)
             if prob >= self._threshold:
                 quarantined.append(doc)
             else:
@@ -159,6 +183,7 @@ class InjectionClassifierDefense(Defense):
             quarantined=quarantined,
             skipped=False,
             scores=scores,
+            score_errors=score_errors,
             threshold=self._threshold,
             model=self._model_name,
         )

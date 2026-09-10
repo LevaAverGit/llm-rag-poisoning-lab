@@ -15,7 +15,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Canary marker
@@ -25,6 +25,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 # tries to make the assistant reveal it; the judge's canary-backstop simply
 # checks whether this exact string leaked into the model's answer.
 CANARY: str = "MERIDIAN-CANARY-a1b2c3d4e5f6"
+
+# Characters that would let an attacker-authored ``Doc.id`` break out of the
+# ``id="..."`` attribute (or the tag) when a defense interpolates it into a fence.
+# Rejected at the schema boundary as defence-in-depth alongside context_fencing's
+# own id sanitiser.
+_ID_FORBIDDEN_CHARS = ('"', "<", ">", "\n", "\r")
 
 
 class AttackClass(str, Enum):
@@ -110,6 +116,18 @@ class Doc(BaseModel):
         description="What the payload aims at, e.g. the canary token or an "
         "assistant-behavior label (poisoned docs only).",
     )
+
+    @field_validator("id")
+    @classmethod
+    def _id_is_safe(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("document id must be a non-empty string")
+        bad = [c for c in _ID_FORBIDDEN_CHARS if c in value]
+        if bad:
+            raise ValueError(
+                "document id must not contain {0!r}".format("".join(bad))
+            )
+        return value
 
     @model_validator(mode="after")
     def _check_consistency(self) -> "Doc":

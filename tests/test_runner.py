@@ -66,13 +66,13 @@ def test_scenario_id_is_stable():
 
 
 def test_cache_key_has_provider_model_scenario_shape():
-    cfg = RunConfig()  # mock + mock
+    cfg = RunConfig()  # mock + mock, top_k 3
     key = runner.cache_key(cfg, "retrieval_hijack::none")
     parts = key.split("__")
     assert len(parts) == 3
     provider, model, scenario = parts
     assert provider == "mock"
-    assert model == "mock-mock"
+    assert model == "mock-mock-k3"  # embedding-generator-topk fingerprint
     assert scenario == "retrieval_hijack::none"
 
 
@@ -82,7 +82,17 @@ def test_cache_key_separates_mock_from_ollama():
         RunConfig(embedding="hf", llm="ollama", llm_model_name="gemma3"), "s"
     )
     assert mock_key != real_key
-    assert real_key == "ollama__hf-gemma3__s"
+    assert real_key == "ollama__hf-gemma3-k3__s"
+
+
+def test_cache_key_folds_in_top_k():
+    # Different retrieval depths must not collide on one key (finding 3b): the answer
+    # is retrieval-dependent, so a shallow and a deep run are different scenarios.
+    k3 = runner.cache_key(RunConfig(top_k=3), "retrieval_hijack::none")
+    k5 = runner.cache_key(RunConfig(top_k=5), "retrieval_hijack::none")
+    assert k3 != k5
+    assert k3.endswith("-k3__retrieval_hijack::none")
+    assert k5.endswith("-k5__retrieval_hijack::none")
 
 
 # ---------------------------------------------------------------------------
@@ -195,3 +205,13 @@ def test_save_and_load_cache_roundtrip(tmp_path):
 
 def test_load_cache_missing_file_is_empty(tmp_path):
     assert runner.load_cache(tmp_path / "nope.json") == {}
+
+
+def test_load_cache_malformed_json_raises_actionable_error(tmp_path):
+    # A truncated / malformed cache must raise an actionable RuntimeError naming the
+    # file, not a raw JSONDecodeError traceback (finding 6).
+    bad = tmp_path / "answers.json"
+    bad.write_text('{"entries": {"k": {"a": 1}', encoding="utf-8")  # truncated
+    with pytest.raises(RuntimeError) as exc:
+        runner.load_cache(bad)
+    assert str(bad) in str(exc.value)

@@ -89,12 +89,15 @@ def cache_key(config: RunConfig, scenario: str) -> str:
     """``provider__model__scenario`` cache key.
 
     ``provider`` is the LLM backend (``mock``/``ollama``); ``model`` folds in the
-    embedding backend and the generator model so a mock run and a real run never
-    collide in the same cache.
+    embedding backend, the generator model *and the retrieval depth* (``top_k``) so a
+    mock run and a real run never collide, and -- crucially -- two runs at different
+    ``top_k`` cannot collide on one key and serve each other stale, retrieval-
+    dependent answers. The depth is part of the fingerprint because which documents
+    are retrieved (and therefore the answer) depends on it.
     """
     provider = _as_str(config.llm)
     model_part = config.llm_model_name if provider == LLMKind.OLLAMA.value else "mock"
-    model = "{}-{}".format(_as_str(config.embedding), model_part)
+    model = "{}-{}-k{}".format(_as_str(config.embedding), model_part, config.top_k)
     return "{}__{}__{}".format(provider, model, scenario)
 
 
@@ -102,12 +105,22 @@ def cache_key(config: RunConfig, scenario: str) -> str:
 # Cache I/O
 # ---------------------------------------------------------------------------
 def load_cache(path: Path) -> Dict[str, dict]:
-    """Load the answer cache; an absent or empty file is an empty cache."""
+    """Load the answer cache; an absent or empty file is an empty cache.
+
+    A truncated / malformed cache raises an actionable :class:`RuntimeError` naming
+    the file, instead of leaking a raw ``JSONDecodeError`` traceback.
+    """
     p = Path(path)
     if not p.exists():
         return {}
     with p.open("r", encoding="utf-8") as fh:
-        data = json.load(fh)
+        try:
+            data = json.load(fh)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                "answer cache {} is not valid JSON (truncated or malformed?): "
+                "{}".format(p, exc)
+            ) from exc
     entries = data.get("entries", {}) if isinstance(data, dict) else {}
     return dict(entries)
 
@@ -221,6 +234,30 @@ def run_cell(
     return cell
 
 
+class _ReusingIndexPipeline:
+    """Build one index for an attack class, reuse it across that class's defenses.
+
+    The default pipeline (``ragpoison.rag.run``) rebuilds the index -- and the
+    embedding model -- for every matrix cell. The index depends only on the
+    embedding backend and the class's documents, not on the defense, so it is safe to
+    build once per attack class and reuse across its defenses (finding 4). The build
+    stays lazy: it only happens the first time a cell actually has to be generated, so
+    a fully-cached / ``--from-cache`` run still needs no llama-index.
+    """
+
+    def __init__(self) -> None:
+        self._index = None
+
+    def __call__(self, query: str, config: RunConfig, docs: List[Doc]) -> GraphState:
+        from . import rag  # local import: keeps module import light / torch-free
+
+        if self._index is None:
+            from .index import build_index_from_config
+
+            self._index = build_index_from_config(config, docs)
+        return rag.answer(query, index=self._index, config=config)
+
+
 def run_matrix(
     base_config: RunConfig,
     *,
@@ -234,19 +271,26 @@ def run_matrix(
 
     The returned dict is what :mod:`ragpoison.eval` consumes to build the
     breach-rate matrix and pick worked bypasses.
+
+    When no ``pipeline`` is injected, one index is built per attack class and reused
+    across that class's defenses (see :class:`_ReusingIndexPipeline`); an injected
+    ``pipeline`` (e.g. a test double) is used as-is for every cell.
     """
     attacks = attacks if attacks is not None else ALL_ATTACKS
     defenses = defenses if defenses is not None else ALL_DEFENSES
     cache = cache if cache is not None else {}
     cells: List[dict] = []
     for attack in attacks:
+        # Reuse one lazily-built index across this class's defenses (unless a pipeline
+        # was injected, in which case the caller owns generation entirely).
+        attack_pipeline = pipeline if pipeline is not None else _ReusingIndexPipeline()
         for defense in defenses:
             cells.append(
                 run_cell(
                     attack,
                     defense,
                     base_config,
-                    pipeline=pipeline,
+                    pipeline=attack_pipeline,
                     cache=cache,
                     mode=mode,
                 )
@@ -328,9 +372,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         llm=args.llm,
         top_k=args.top_k,
     )
-    cache = load_cache(args.cache)
 
     try:
+        # Inside the handled block so a truncated/malformed cache surfaces as an
+        # actionable "runner: ..." message rather than a raw traceback.
+        cache = load_cache(args.cache)
         result = run_matrix(
             base_config,
             attacks=args.attack,

@@ -15,6 +15,17 @@ from ragpoison import (
     load_corpus,
     get_canary_doc,
 )
+from ragpoison.corpus_loader import _load_yaml_file
+
+
+def test_corpus_loader_reports_malformed_yaml_by_name(tmp_path):
+    # A malformed corpus file must raise an actionable RuntimeError naming the file
+    # rather than a raw YAML traceback (finding 6).
+    bad = tmp_path / "broken.yml"
+    bad.write_text("id: x\n  bad: : indentation\n:\n", encoding="utf-8")
+    with pytest.raises(RuntimeError) as exc:
+        _load_yaml_file(bad)
+    assert str(bad) in str(exc.value)
 
 
 def test_corpus_loads_and_ids_unique():
@@ -89,6 +100,23 @@ def test_doc_rejects_inconsistent_labels():
             poisoned=False,
             payload="should not be here",  # benign but carries a payload
         )
+
+
+def test_doc_id_rejects_fence_breaking_characters():
+    # Attacker-authored ids must not be able to carry fence-breaking characters
+    # (finding 5 defence-in-depth at the schema boundary).
+    for bad_id in ['a"b', "a<b", "a>b", "a\nb", "", "   "]:
+        with pytest.raises(Exception):
+            Doc(
+                id=bad_id,
+                text="x",
+                source="internal_wiki",
+                trusted=True,
+                poisoned=False,
+            )
+    # A normal id is still accepted.
+    ok = Doc(id="poison-direct-101", text="x", source="s", trusted=True, poisoned=False)
+    assert ok.id == "poison-direct-101"
 
 
 def test_verdict_canary_leak_forces_breach():
