@@ -86,7 +86,7 @@ def test_cache_key_separates_mock_from_ollama():
 
 
 def test_cache_key_folds_in_top_k():
-    # Different retrieval depths must not collide on one key (finding 3b): the answer
+    # Different retrieval depths must not collide on one key: the answer
     # is retrieval-dependent, so a shallow and a deep run are different scenarios.
     k3 = runner.cache_key(RunConfig(top_k=3), "retrieval_hijack::none")
     k5 = runner.cache_key(RunConfig(top_k=5), "retrieval_hijack::none")
@@ -99,8 +99,8 @@ def test_cache_key_folds_in_top_k():
 # Running cells / the matrix with the injected pipeline
 # ---------------------------------------------------------------------------
 def test_run_matrix_covers_every_cell():
-    result = run = runner.run_matrix(RunConfig(), pipeline=fake_pipeline, cache={})
-    cells = run["cells"]
+    result = runner.run_matrix(RunConfig(), pipeline=fake_pipeline, cache={})
+    cells = result["cells"]
     assert len(cells) == len(AttackClass) * len(DefenseName)  # 4 x 4
     pairs = {(c["attack_class"], c["defense"]) for c in cells}
     assert len(pairs) == 16
@@ -209,7 +209,7 @@ def test_load_cache_missing_file_is_empty(tmp_path):
 
 def test_load_cache_malformed_json_raises_actionable_error(tmp_path):
     # A truncated / malformed cache must raise an actionable RuntimeError naming the
-    # file, not a raw JSONDecodeError traceback (finding 6).
+    # file, not a raw JSONDecodeError traceback.
     bad = tmp_path / "answers.json"
     bad.write_text('{"entries": {"k": {"a": 1}', encoding="utf-8")  # truncated
     with pytest.raises(RuntimeError) as exc:

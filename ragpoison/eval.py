@@ -8,9 +8,8 @@ Consumes the ``cells`` produced by :mod:`ragpoison.runner` and produces:
   undefended baseline) with its query, answer and the judge's rationale.
 
 Both are rendered to Markdown and spliced into ``README.md`` between HTML-comment
-markers, so ``make run --render-readme`` (M5) refreshes the published numbers in
-place. Pure standard library -- no pandas -- so it imports instantly and the test
-suite stays light.
+markers, so ``make run-llm`` refreshes the published numbers in place. Pure standard
+library -- no pandas -- so it imports instantly and the test suite stays light.
 """
 
 from __future__ import annotations
@@ -60,7 +59,7 @@ def _ordered(values: List[str], order: List[str]) -> List[str]:
 def build_matrix(cells: List[dict]) -> dict:
     """Aggregate cells into per-(attack, defense) breach counts and rates.
 
-    Robust to more than one trial per cell (rate = breached / total), though the
+    Handles more than one trial per cell (rate = breached / total), though the
     deterministic lab runs a single trial so rates are 0.0 or 1.0.
     """
     attacks = _ordered(sorted({c["attack_class"] for c in cells}), ATTACK_ORDER)

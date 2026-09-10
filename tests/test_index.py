@@ -1,4 +1,4 @@
-"""Tests for the index + retriever (builder #1).
+"""Tests for the index + retriever.
 
 Everything here runs on LlamaIndex's deterministic ``MockEmbedding`` -- no torch,
 no model download -- so the suite stays fast and reproducible. A real HuggingFace

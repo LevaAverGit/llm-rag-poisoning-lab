@@ -1,7 +1,7 @@
 """Foundational tests for the contracts and the labelled corpus.
 
 Pure Python: PyYAML + Pydantic only. No embeddings, no torch, no downloads.
-Pipeline builders add their own MockEmbedding / mock-LLM tests on top of this.
+Pipeline tests add their own MockEmbedding / mock-LLM coverage on top of this.
 """
 
 import pytest
@@ -20,7 +20,7 @@ from ragpoison.corpus_loader import _load_yaml_file
 
 def test_corpus_loader_reports_malformed_yaml_by_name(tmp_path):
     # A malformed corpus file must raise an actionable RuntimeError naming the file
-    # rather than a raw YAML traceback (finding 6).
+    # rather than a raw YAML traceback.
     bad = tmp_path / "broken.yml"
     bad.write_text("id: x\n  bad: : indentation\n:\n", encoding="utf-8")
     with pytest.raises(RuntimeError) as exc:
@@ -104,7 +104,7 @@ def test_doc_rejects_inconsistent_labels():
 
 def test_doc_id_rejects_fence_breaking_characters():
     # Attacker-authored ids must not be able to carry fence-breaking characters
-    # (finding 5 defence-in-depth at the schema boundary).
+    # (defence-in-depth at the schema boundary).
     for bad_id in ['a"b', "a<b", "a>b", "a\nb", "", "   "]:
         with pytest.raises(Exception):
             Doc(

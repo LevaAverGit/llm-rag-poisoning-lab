@@ -1,4 +1,4 @@
-"""Tests for the attack scenarios (builder #3).
+"""Tests for the attack scenarios.
 
 Pure Python: contracts + corpus loader + the judge's deterministic primitives. No
 torch, no model download. One integration test builds a LlamaIndex MockEmbedding

@@ -46,8 +46,8 @@ DEFAULT_THRESHOLD = 0.5
 _MAX_CHARS = 4000
 
 # Module-level cache of built HF scorers, keyed by model name, so the (heavy) model
-# loads once per process instead of once per matrix cell (finding 4). Only the real
-# HF path populates this; the mock/test paths never reach _build_hf_scorer.
+# loads once per process instead of once per matrix cell. Only the real HF path
+# populates this; the mock/test paths never reach _build_hf_scorer.
 _HF_SCORER_CACHE: Dict[str, Tuple[Optional[Scorer], Optional[str]]] = {}
 
 

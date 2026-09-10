@@ -1,8 +1,8 @@
 """ragpoison -- defensive RAG-poisoning lab (contracts, corpus, pipeline).
 
 This package holds the shared contracts and the labelled-corpus loader that every
-other component builds on. Pipeline modules (index, rag, defenses, judge, runner,
-eval) are added under this package by the respective builders.
+other component builds on. The pipeline modules (index, rag, defenses, judge,
+runner, eval) build on top of these.
 """
 
 from __future__ import annotations

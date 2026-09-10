@@ -1,6 +1,6 @@
 """Regression: the offline mock matrix reproduces the committed cache at top_k=3.
 
-This is the guard for the retrieval no-op bug (finding 3). Before the query-aware
+This is the guard for the retrieval no-op bug. Before the query-aware
 mock ranking, ``MockEmbedding`` returned a constant vector, so at the shipped default
 ``top_k=3`` nothing content-relevant was retrieved and every cell collapsed to "not
 breached" -- while the committed cache claimed otherwise. Running the real mock

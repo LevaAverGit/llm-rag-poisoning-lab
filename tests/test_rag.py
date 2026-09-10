@@ -1,4 +1,4 @@
-"""Tests for the RAG pipeline (builder #2): retrieve -> defense -> generate.
+"""Tests for the RAG pipeline: retrieve -> defense -> generate.
 
 Everything runs on LlamaIndex's deterministic ``MockEmbedding`` (via the index
 module) plus the deterministic :class:`~ragpoison.rag.MockLLM` -- no torch, no model

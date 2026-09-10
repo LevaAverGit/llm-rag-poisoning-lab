@@ -128,7 +128,7 @@ def test_inject_between_markers_raises_when_missing():
 
 
 def test_render_readme_against_real_readme_file():
-    # The shipped README must carry both marker pairs so M5 can render in place.
+    # The shipped README must carry both marker pairs so the runner can render in place.
     text = README.read_text(encoding="utf-8")
     assert ev.MATRIX_START in text and ev.MATRIX_END in text
     assert ev.BYPASS_START in text and ev.BYPASS_END in text

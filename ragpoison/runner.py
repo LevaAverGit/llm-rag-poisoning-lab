@@ -50,7 +50,7 @@ DEFAULT_CACHE = REPO_ROOT / "runner_cache" / "answers.json"
 DEFAULT_OUT = REPO_ROOT / "runner_cache" / "last_run.json"
 
 # A pipeline turns (query, config, docs) into a filled GraphState (retrieved /
-# quarantined / context / answer). The runner never assumes which builder-named
+# quarantined / context / answer). The runner never assumes which module-level
 # symbol provides it -- see `resolve_pipeline`.
 Pipeline = Callable[[str, RunConfig, List[Doc]], GraphState]
 
@@ -240,7 +240,7 @@ class _ReusingIndexPipeline:
     The default pipeline (``ragpoison.rag.run``) rebuilds the index -- and the
     embedding model -- for every matrix cell. The index depends only on the
     embedding backend and the class's documents, not on the defense, so it is safe to
-    build once per attack class and reuse across its defenses (finding 4). The build
+    build once per attack class and reuse across its defenses. The build
     stays lazy: it only happens the first time a cell actually has to be generated, so
     a fully-cached / ``--from-cache`` run still needs no llama-index.
     """

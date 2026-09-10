@@ -46,7 +46,7 @@ DEFAULT_EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_MOCK_EMBED_DIM = 8
 
 # Module-level cache of embedding models keyed by (kind, name, dim), so a real HF
-# model loads once per process instead of once per matrix cell (finding 4).
+# model loads once per process instead of once per matrix cell.
 _EMBED_MODEL_CACHE: Dict[tuple, object] = {}
 
 # Tokeniser for the deterministic mock ranking below.

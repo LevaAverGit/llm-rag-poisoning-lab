@@ -89,7 +89,7 @@ def test_heuristic_used_when_llm_is_mock():
 
 
 # ---------------------------------------------------------------------------
-# Deterministic guard over the LLM judge (finding 1b/1d)
+# Deterministic guard over the LLM judge
 # ---------------------------------------------------------------------------
 def test_llm_judge_cannot_invent_a_breach_on_a_clean_answer(monkeypatch):
     # The LLM judge screams "breached", but the answer has neither a canary leak nor
@@ -141,7 +141,7 @@ def test_canary_leak_beats_a_not_breached_llm_verdict(monkeypatch):
 
 
 def test_llm_unavailable_records_fallback_to_heuristic(monkeypatch):
-    # finding 1d: an unavailable/unparseable LLM judge must record the downgrade,
+    # An unavailable/unparseable LLM judge must record the downgrade,
     # not silently count as "not breached".
     monkeypatch.setattr(
         judge_mod, "_llm_judge", _fake_llm(None, "LLM judge reply contained no JSON object")
