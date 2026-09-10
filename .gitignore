@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Virtualenv / env
+.venv/
+.env
+
+# Model / HF caches
+.cache/
+.hf_cache/
+hf_cache/
+models/
+*.gguf
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Planning doc (not published)
+PLAN.md
+
+# Runner: keep the stable answer cache (answers.json) but not the per-run result,
+# which `make run` rewrites on every invocation.
+runner_cache/last_run.json

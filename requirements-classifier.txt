@@ -1,0 +1,12 @@
+# OPTIONAL / HEAVY extra: dependencies for the `injection_classifier` defense.
+#
+# This defense scores each retrieved chunk with a HuggingFace transformers
+# prompt-injection classifier and quarantines suspicious ones. It is a separate,
+# heavyweight install (pulls torch) and is NOT required to run the tests or the
+# core matrix. The defense graceful-skips if these are not installed.
+#
+# Suggested model (downloaded on first use via the transformers pipeline):
+#   protectai/deberta-v3-base-prompt-injection-v2
+
+transformers>=4.40
+torch>=2.0
