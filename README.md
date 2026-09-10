@@ -10,6 +10,8 @@
 > They exist for one reason — to measure whether this lab's RAG defenses hold, and
 > to make them stronger.
 
+*Why it matters: RAG assistants ingest documents from email, wikis and tickets — outside the trust boundary — which makes indirect injection the top real-world corporate LLM risk; this lab measures whether your RAG defenses actually hold.*
+
 RAG assistants read documents that arrive from outside the trust boundary — email,
 wikis, tickets, uploaded files. **Indirect prompt injection** is when a poisoned
 document, once retrieved into context, hijacks the model. This lab builds a small
