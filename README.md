@@ -1,5 +1,10 @@
 # llm-rag-poisoning-lab
 
+[![CI](https://github.com/LevaAverGit/llm-rag-poisoning-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/LevaAverGit/llm-rag-poisoning-lab/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![LlamaIndex](https://img.shields.io/badge/LlamaIndex-8B5CF6)
+
 > **Defensive, educational only.** This is a self-contained lab that tests the
 > resilience of its **own** isolated RAG corpus. The assistant answers questions
 > from a synthetic internal wiki for a fictional company, and the "attacker" never
